@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface Todo {
   id: number;
@@ -13,10 +13,53 @@ const App: React.FC = () => {
   });
   const [inputValue, setInputValue] = useState<string>('');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     localStorage.setItem('todos', JSON.stringify(todos));
   }, [todos]);
+
+  useEffect(() => {
+    // Clean up video stream when component unmounts or streaming stops
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsStreaming(true);
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      const tracks = stream.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      setIsStreaming(false);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (isStreaming) {
+      stopCamera();
+    } else {
+      startCamera();
+    }
+  };
 
   const addTodo = () => {
     if (inputValue.trim()) {
@@ -57,6 +100,25 @@ const App: React.FC = () => {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Todo List</h1>
+      
+      <div style={styles.cameraContainer}>
+        <button 
+          onClick={toggleCamera} 
+          style={{
+            ...styles.cameraButton,
+            backgroundColor: isStreaming ? '#ff6b6b' : '#4CAF50'
+          }}
+        >
+          {isStreaming ? 'Stop Camera' : 'Start Camera'}
+        </button>
+        {isStreaming && (
+          <video 
+            ref={videoRef}
+            autoPlay
+            style={styles.videoElement}
+          />
+        )}
+      </div>
       
       <div style={styles.inputContainer}>
         <input
@@ -155,6 +217,26 @@ const styles = {
     color: '#333',
     marginBottom: '20px',
   },
+  cameraContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  cameraButton: {
+    padding: '10px 15px',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    marginBottom: '10px',
+  },
+  videoElement: {
+    width: '100%',
+    maxHeight: '300px',
+    borderRadius: '4px',
+    backgroundColor: '#000',
+  },
   inputContainer: {
     display: 'flex',
     marginBottom: '20px',
@@ -177,69 +259,4 @@ const styles = {
   filterContainer: {
     display: 'flex',
     justifyContent: 'center',
-    marginBottom: '15px',
-  },
-  filterButton: {
-    margin: '0 5px',
-    padding: '5px 10px',
-    border: '1px solid #ddd',
-    borderRadius: '3px',
-    background: 'none',
-    cursor: 'pointer',
-  },
-  activeFilter: {
-    borderColor: '#4CAF50',
-    color: '#4CAF50',
-  },
-  todoList: {
-    listStyle: 'none',
-    padding: '0',
-    margin: '0',
-  },
-  todoItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px',
-    borderBottom: '1px solid #eee',
-  },
-  todoContent: {
-    display: 'flex',
-    alignItems: 'center',
-    flex: '1',
-  },
-  checkbox: {
-    marginRight: '10px',
-  },
-  todoText: {
-    fontSize: '16px',
-  },
-  completedTodo: {
-    textDecoration: 'line-through',
-    color: '#888',
-  },
-  deleteButton: {
-    background: 'none',
-    border: 'none',
-    color: '#ff6b6b',
-    fontSize: '20px',
-    cursor: 'pointer',
-    padding: '0 5px',
-  },
-  footer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '10px 0',
-    color: '#777',
-    fontSize: '14px',
-  },
-  clearButton: {
-    background: 'none',
-    border: 'none',
-    color: '#777',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-};
-
-export default App;
+    marginBottom
